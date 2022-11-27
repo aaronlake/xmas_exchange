@@ -24,6 +24,8 @@ export TWILIO_NUMBER=+1ZZZZZZZZZZZZZZ
 xmas_exchange.py --action create_table
 xmas_exchange.py --action add # Add people
 xmas_exchange.py --action assign # Assign people to make gifts for each other
-xmas_exchange.py --action clear_assignments # Clear all assignments
 xmas_exchange.py --action send_sms # Send text messages to each person with their giftee
+
+# If something goes wrong
+xmas_exchange.py --action clear_assignments # Clear all assignments
 ```
