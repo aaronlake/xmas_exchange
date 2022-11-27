@@ -44,13 +44,14 @@ def main():
         case "send_sms":
             send_sms()
         case _:
-            print("Do something")
+            print("Invalid action")
 
 
 def cli():
     """Command line interface"""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--action", help="WTF U WANNA DO")
+    parser.add_argument(
+        "--action", help="Specify an action <create_table, add, assign, clear_assignments, send_sms>")
     args = parser.parse_args()
     return args.action
 
