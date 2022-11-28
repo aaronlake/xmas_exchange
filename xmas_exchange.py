@@ -20,6 +20,7 @@ Usage:
 import argparse
 import sqlite3
 import random
+import re
 import datetime
 import os
 from twilio.rest import Client
@@ -27,16 +28,21 @@ from twilio.rest import Client
 # Change this to your family name
 FAMILY = "McLaxter"
 
+TWILIO_ACCOUNT_SID = os.environ['TWILIO_ACCOUNT_SID']
+TWILIO_AUTH_TOKEN = os.environ['TWILIO_AUTH_TOKEN']
+
+con = sqlite3.connect("exchange.db")
+
 
 def main():
     """Main function"""
+
     action = cli()
     match action:
         case "create_table":
             create_table()
         case "add":
-            person = input_person()
-            create_person(person)
+            input_person()
         case "assign":
             assign_people()
         case "clear_assignments":
@@ -45,6 +51,19 @@ def main():
             send_sms()
         case _:
             print("Invalid action")
+
+
+def db_update(sql):
+    """Update the database"""
+    con.cursor().execute(sql)
+    con.commit()
+    return True
+
+
+def db_get(sql):
+    """Get data from the database"""
+    cur = con.cursor()
+    return cur.execute(sql).fetchall()
 
 
 def cli():
@@ -64,103 +83,64 @@ def get_year():
 
 def create_table():
     """Create the database and table"""
-    con = sqlite3.connect("exchange.db")
-    cur = con.cursor()
-    cur.execute(
-        "CREATE TABLE IF NOT EXISTS people (name TEXT, phone TEXT, \
-                                            house TEXT, gifter TEXT, \
-                                            giftee TEXT)")
+    db_update("CREATE TABLE IF NOT EXISTS people (name TEXT, phone TEXT, \
+                                                  house TEXT, gifter TEXT, \
+                                                  giftee TEXT)")
 
 
 def input_person():
     """Input a person"""
-    people = []
+
     while True:
         name = input("Name [blank to stop adding]: ")
         if name == "":
             break
-        phone = input("Phone: ")
-        house = input("House: ")
-        people.append({"name": name, "phone": phone, "house": house})
-    return people
 
+        while True:
+            phone = input("Phone [ex 5553334444]: ")
+            if re.match(r"^\d{10}$", phone):
+                break
+            print("Invalid phone number")
 
-def create_person(people):
-    """Create a person in the database"""
-    con = sqlite3.connect("exchange.db")
-    cur = con.cursor()
-    for person in people:
-        cur.execute(
-            f"INSERT INTO people (name, phone, house) VALUES \
-                ('{person['name']}', '{person['phone']}', '{person['house']}')")
-    con.commit()
+        house = input("House [ex Lakes]: ")
 
-
-def get_gifter(name):
-    """Returns the gifter for a person"""
-    con = sqlite3.connect("exchange.db")
-    cur = con.cursor()
-    cur.execute(f"SELECT gifter FROM people WHERE name = '{name}'")
-    gifter = cur.fetchone()
-    return gifter[0]
-
-
-def get_house(name):
-    """Returns the house for a person"""
-    con = sqlite3.connect("exchange.db")
-    cur = con.cursor()
-    cur.execute(f"SELECT house FROM people WHERE name = '{name}'")
-    house = cur.fetchone()
-    return house[0]
+        db_update(f"INSERT INTO people (name, phone, house) VALUES \
+                    ({name}, {phone}, {house})")
 
 
 def assign_people():
     """Assign people to make gifts for each other"""
-    con = sqlite3.connect("exchange.db")
-    cur = con.cursor()
-    cur.execute("SELECT name FROM people")
-    people = cur.fetchall()
+
+    people = db_get("SELECT name, house FROM people")
 
     for person in people:
-        name = person[0]
+        name, house = person
 
         # Get a random person from the database that is not the current person,
         # gifter is null, and house is not the same
-        cur.execute(
+        giftee = db_get(
             f"SELECT name FROM people WHERE name != '{name}' \
-                AND gifter IS NULL AND house != '{get_house(name)}'")
-        giftee = cur.fetchall()
+                AND gifter IS NULL AND house != '{house}'")
         giftee = random.choice(giftee)[0]
 
         # Assign the person a giftee
-        cur.execute(
+        db_update(
             f"UPDATE people SET giftee = '{giftee}' WHERE name = '{name}'")
 
         # Assign the giftee the person as their gifter
-        cur.execute(
+        db_update(
             f"UPDATE people SET gifter = '{name}' WHERE name = '{giftee}'")
-
-    con.commit()
 
 
 def clear_assignments():
     """Clears all gifter and giftee assignments"""
-    con = sqlite3.connect("exchange.db")
-    cur = con.cursor()
-    cur.execute("UPDATE people SET gifter = NULL, giftee = NULL")
-    con.commit()
+    db_update("UPDATE people SET gifter = NULL, giftee = NULL")
 
 
 def send_sms():
     """Sends a text message to each person with their giftee"""
-    con = sqlite3.connect("exchange.db")
-    cur = con.cursor()
-    cur.execute("SELECT name, phone, giftee FROM people")
-    people = cur.fetchall()
-
-    account_sid = os.environ['TWILIO_ACCOUNT_SID']
-    auth_token = os.environ['TWILIO_AUTH_TOKEN']
-    client = Client(account_sid, auth_token)
+    people = db_get("SELECT name, phone, giftee FROM people")
+    client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
     for person in people:
         name, phone, giftee = person
