@@ -2,13 +2,13 @@ document.getElementById('submit').addEventListener('click', function() {
   const codeInput = document.getElementById('code');
   const code = codeInput.value.trim().toUpperCase();
 
+  // Replace with your actual API endpoint
+  const apiEndpoint = 'https://kytphi0459.execute-api.us-east-2.amazonaws.com/prod/code';
+
   if (code.length !== 4) {
     displayMessage('Please enter a valid 4-digit code.', true);
     return;
   }
-
-  // Replace with your actual API endpoint
-  const apiEndpoint = 'https://kytphi0459.execute-api.us-east-2.amazonaws.com/prod/code';
 
   fetch(`${apiEndpoint}?code=${code}`)
     .then(response => response.json())
