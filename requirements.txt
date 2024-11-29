@@ -1,1 +1,1 @@
-twilio==7.15.3
+cryptography==44.0.0
